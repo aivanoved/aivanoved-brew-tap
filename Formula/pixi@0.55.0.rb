@@ -1,0 +1,48 @@
+class PixiAT0550 < Formula
+  desc "Package management made easy"
+  homepage "https://pixi.sh"
+  url "https://github.com/prefix-dev/pixi/archive/refs/tags/v0.55.0.tar.gz"
+  sha256 "fcf3dc002573980780b27e92d2f10e1b23f82bbb0df3c127bbfdabe0813dfa75"
+  license "BSD-3-Clause"
+  head "https://github.com/prefix-dev/pixi.git", branch: "main"
+
+  # There can be a notable gap between when a version is tagged and a
+  # corresponding release is created, so we check the "latest" release instead
+  # of the Git tags.
+  livecheck do
+    url :stable
+    strategy :github_latest
+  end
+
+  depends_on "cmake" => :build
+  depends_on "pkgconf" => :build
+  depends_on "rust" => :build
+
+  uses_from_macos "bzip2"
+
+  on_linux do
+    depends_on "openssl@3"
+    depends_on "xz" # for liblzma
+  end
+
+  def install
+    ENV["PIXI_VERSION"] = Utils.safe_popen_read("git", "describe", "--tags").chomp.delete_prefix("v") if build.head?
+
+    ENV["PIXI_SELF_UPDATE_DISABLED_MESSAGE"] = <<~EOS
+      `self-update` has been disabled for this build.
+      Run `brew upgrade pixi` instead.
+    EOS
+    system "cargo", "install", *std_cargo_args(path: "crates/pixi")
+
+    generate_completions_from_executable(bin/"pixi", "completion", "-s")
+  end
+
+  test do
+    ENV["PIXI_HOME"] = testpath
+
+    assert_equal "pixi #{version}", shell_output("#{bin}/pixi --version").strip
+
+    system bin/"pixi", "init"
+    assert_path_exists testpath/"pixi.toml"
+  end
+end
